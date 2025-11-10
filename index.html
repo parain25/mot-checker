@@ -1,64 +1,611 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>UK MOT Status Checker</title>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@2/dist/tesseract.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>MOT Status Checker with OCR</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: #e8ebff;
+            border-color: #764ba2;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: #667eea;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .upload-subtext {
+            color: #999;
+            font-size: 14px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .preview-container {
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .preview-container.active {
+            display: block;
+        }
+
+        .preview-container img {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .status-box {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .status-box.active {
+            display: block;
+        }
+
+        .status-text {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .detected-reg {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            font-family: monospace;
+            letter-spacing: 2px;
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 18px;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f0f2ff;
+            color: #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #e8ebff;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .success {
+            background: #efe;
+            color: #3a3;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .camera-btn {
+            width: 100%;
+            margin-bottom: 15px;
+            background: #764ba2;
+            color: white;
+        }
+
+        .camera-btn:hover {
+            background: #5e3a7f;
+        }
+
+        video {
+            width: 100%;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .debug-info {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 12px;
+            font-family: monospace;
+            display: none;
+        }
+
+        .debug-info.active {
+            display: block;
+        }
+
+        .manual-input {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+        }
+
+        .manual-input input {
+            width: 100%;
+            padding: 12px;
+            font-size: 18px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            text-align: center;
+            font-family: monospace;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
-<h2>UK Vehicle MOT Status Checker</h2>
-<input type="file" id="upload" accept="image/*"/>
-<p id="status"></p>
-<button id="checkStatus" disabled>Check MOT Status</button>
-<p id="motResult"></p>
+    <div class="container">
+        <h1>🚗 MOT Checker</h1>
+        <p class="subtitle">Scan number plate and check MOT status automatically</p>
 
-<script>
-let regNumber = '';
+        <button class="camera-btn" id="cameraBtn" onclick="startCamera()">📸 Use Camera</button>
 
-document.getElementById('upload').addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    if (file) {
-        document.getElementById('status').innerText = 'Processing image...';
-        Tesseract.recognize(
-            file,
-            'eng',
-            { logger: m => console.log(m) }
-        ).then(({ data: { text } }) => {
-            const match = text.match(/[A-Z]{2,3}[A-Z0-9]{2,4}[A-Z0-9]{2,4}/i);
-            if (match) {
-                regNumber = match[0].replace(/\s+/g, '').toUpperCase();
-                document.getElementById('status').innerText = 'Detected Registration: ' + regNumber;
-                document.getElementById('checkStatus').disabled = false;
-            } else {
-                document.getElementById('status').innerText = 'Could not read registration number.';
-                document.getElementById('checkStatus').disabled = true;
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📤</div>
+            <div class="upload-text">Click to upload or drag image here</div>
+            <div class="upload-subtext">Upload a photo of a number plate</div>
+        </div>
+
+        <input type="file" id="fileInput" accept="image/*" onchange="handleFile(this.files[0])">
+
+        <video id="video" class="hidden" autoplay playsinline></video>
+        <button id="captureBtn" class="btn-primary hidden" onclick="capturePhoto()">Capture Photo</button>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div id="loadingText">Reading number plate...</div>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="debug-info" id="debugInfo"></div>
+
+        <div class="preview-container" id="preview">
+            <img id="previewImg" alt="Preview">
+        </div>
+
+        <div class="status-box" id="statusBox">
+            <div class="status-text">Detected Registration:</div>
+            <div class="detected-reg" id="detectedReg"></div>
+            <div class="success">✅ Click button below to check MOT status</div>
+            <button class="btn-primary" style="width: 100%; margin-top: 15px;" onclick="checkMOTAuto()">
+                🔍 Check MOT Status
+            </button>
+        </div>
+
+        <div class="manual-input">
+            <div style="text-align: center; color: #666; margin-bottom: 10px; font-weight: 600;">
+                Or Enter Registration Manually:
+            </div>
+            <input type="text" id="manualReg" placeholder="e.g. AB12CDE" maxlength="8">
+            <button class="btn-primary" style="width: 100%;" onclick="checkMOTManual()">
+                🔍 Check MOT Status
+            </button>
+        </div>
+
+        <div class="button-container">
+            <button class="btn-secondary" onclick="reset()">🔄 Start Over</button>
+        </div>
+    </div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {
+                    console.log('Service Worker registration failed');
+                });
+            });
+        }
+
+        let stream = null;
+        let detectedRegNumber = '';
+
+        const uploadArea = document.getElementById('uploadArea');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleFile(file);
             }
         });
-    }
-});
 
-document.getElementById('checkStatus').addEventListener('click', () => {
-    if (!regNumber) return;
-    document.getElementById('motResult').innerText = 'Checking MOT status...';
-
-    fetch('/api/mot-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ registration: regNumber })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            document.getElementById('motResult').innerText = `MOT Status: ${data.status}\nExpiry: ${data.expiryDate}`;
-        } else {
-            document.getElementById('motResult').innerText = 'Failed to retrieve MOT status.';
+        function handleFile(file) {
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('previewImg').src = e.target.result;
+                document.getElementById('preview').classList.add('active');
+                processImage(e.target.result);
+            };
+            reader.readAsDataURL(file);
         }
-    })
-    .catch(() => {
-        document.getElementById('motResult').innerText = 'Error fetching data.';
-    });
-});
-</script>
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                document.getElementById('captureBtn').classList.remove('hidden');
+                document.getElementById('uploadArea').style.display = 'none';
+                document.getElementById('cameraBtn').style.display = 'none';
+            } catch (err) {
+                showError('Could not access camera. Please upload an image instead.');
+            }
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/jpeg', 0.95);
+            document.getElementById('previewImg').src = imageData;
+            document.getElementById('preview').classList.add('active');
+            
+            stopCamera();
+            processImage(imageData);
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            document.getElementById('video').classList.add('hidden');
+            document.getElementById('captureBtn').classList.add('hidden');
+        }
+
+        async function processImage(imageData) {
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('error').classList.remove('active');
+            document.getElementById('loadingText').textContent = 'Processing image...';
+
+            try {
+                // Pre-process image for better OCR
+                const processedImage = await preprocessImage(imageData);
+                
+                document.getElementById('loadingText').textContent = 'Reading text with OCR...';
+                
+                const worker = await Tesseract.createWorker({
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            const progress = Math.round(m.progress * 100);
+                            document.getElementById('loadingText').textContent = `Reading text... ${progress}%`;
+                        }
+                    }
+                });
+                
+                await worker.loadLanguage('eng');
+                await worker.initialize('eng');
+                await worker.setParameters({
+                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ',
+                    tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
+                });
+
+                const result = await worker.recognize(processedImage);
+                const text = result.data.text;
+                
+                showDebug('Raw OCR Text: ' + text);
+                
+                await worker.terminate();
+
+                const regNumber = extractRegNumber(text);
+                
+                if (regNumber) {
+                    detectedRegNumber = regNumber;
+                    document.getElementById('detectedReg').textContent = regNumber;
+                    document.getElementById('statusBox').classList.add('active');
+                    showDebug('Extracted Reg: ' + regNumber);
+                } else {
+                    showError('Could not detect a valid UK registration number. Please try another image or enter manually below.');
+                    showDebug('No valid registration found in: ' + text);
+                }
+            } catch (err) {
+                showError('Error processing image: ' + err.message);
+                console.error(err);
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        function preprocessImage(imageData) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageDataObj.data;
+                    
+                    // Increase contrast and convert to grayscale
+                    for (let i = 0; i < data.length; i += 4) {
+                        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        const contrast = 1.5;
+                        let val = ((avg - 128) * contrast) + 128;
+                        val = Math.max(0, Math.min(255, val));
+                        
+                        // Threshold to black and white
+                        val = val > 128 ? 255 : 0;
+                        
+                        data[i] = data[i + 1] = data[i + 2] = val;
+                    }
+                    
+                    ctx.putImageData(imageDataObj, 0, 0);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.src = imageData;
+            });
+        }
+
+        function extractRegNumber(text) {
+            const cleaned = text.replace(/[^A-Z0-9]/g, '').toUpperCase();
+            
+            showDebug('Cleaned text: ' + cleaned);
+            
+            // UK registration patterns - more comprehensive
+            const patterns = [
+                /[A-Z]{2}[0-9]{2}[A-Z]{3}/,     // AB12CDE (current format)
+                /[A-Z][0-9]{1,3}[A-Z]{3}/,      // A123BCD
+                /[A-Z]{3}[0-9]{1,3}[A-Z]/,      // ABC123D
+                /[A-Z]{2}[0-9]{1,4}/,            // AB1234
+                /[0-9]{1,4}[A-Z]{1,3}/,          // 1234AB
+                /[A-Z][0-9]{1,4}[A-Z]{3}/        // A1234BCD
+            ];
+
+            // Try to find pattern in cleaned text
+            for (const pattern of patterns) {
+                const match = cleaned.match(pattern);
+                if (match) {
+                    let reg = match[0];
+                    // Format current style plates (AB12CDE)
+                    if (/^[A-Z]{2}[0-9]{2}[A-Z]{3}$/.test(reg)) {
+                        return reg.substring(0, 2) + reg.substring(2, 4) + ' ' + reg.substring(4);
+                    }
+                    return reg;
+                }
+            }
+
+            // Try splitting and looking for parts
+            const words = text.split(/\s+/).map(w => w.replace(/[^A-Z0-9]/g, ''));
+            for (const word of words) {
+                if (word.length >= 5 && word.length <= 8) {
+                    for (const pattern of patterns) {
+                        if (pattern.test(word)) {
+                            return word;
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function checkMOTAuto() {
+            if (detectedRegNumber) {
+                checkMOT(detectedRegNumber);
+            }
+        }
+
+        function checkMOTManual() {
+            const manualReg = document.getElementById('manualReg').value.trim().toUpperCase();
+            if (manualReg.length >= 2) {
+                checkMOT(manualReg);
+            } else {
+                showError('Please enter a registration number');
+            }
+        }
+
+        function checkMOT(regNumber) {
+            const url = `https://www.gov.uk/check-mot-status?registration=${encodeURIComponent(regNumber)}`;
+            window.open(url, '_blank');
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('error');
+            errorEl.textContent = '⚠️ ' + message;
+            errorEl.classList.add('active');
+        }
+
+        function showDebug(message) {
+            const debugEl = document.getElementById('debugInfo');
+            debugEl.textContent = message;
+            debugEl.classList.add('active');
+        }
+
+        function reset() {
+            document.getElementById('preview').classList.remove('active');
+            document.getElementById('statusBox').classList.remove('active');
+            document.getElementById('error').classList.remove('active');
+            document.getElementById('loading').classList.remove('active');
+            document.getElementById('debugInfo').classList.remove('active');
+            document.getElementById('fileInput').value = '';
+            document.getElementById('manualReg').value = '';
+            document.getElementById('uploadArea').style.display = 'block';
+            document.getElementById('cameraBtn').style.display = 'block';
+            detectedRegNumber = '';
+            stopCamera();
+        }
+    </script>
 </body>
 </html>
